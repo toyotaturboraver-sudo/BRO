@@ -15,8 +15,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var usbSerialManager: UsbSerialManager
     private lateinit var broAssistant: BroAssistant
 
-    private lateinit var statusTextView: TextView
-    private lateinit var connectButton: Button
+    // Declared class properties so findViewById bindings resolve correctly
+    private var statusTextView: TextView? = null
+    private var connectButton: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,25 +36,24 @@ class MainActivity : AppCompatActivity() {
 
         checkPermissions()
 
-        connectButton.setOnClickListener {
+        connectButton?.setOnClickListener {
             if (!usbSerialManager.isConnected) {
                 val connected = usbSerialManager.connect()
                 if (connected) {
-                    statusTextView.text = "Status: Connected to Arduino"
+                    statusTextView?.text = "Status: Connected to Arduino"
                     broAssistant.speak("Connected to hardware system.")
                 } else {
-                    statusTextView.text = "Status: Connection Failed"
+                    statusTextView?.text = "Status: Connection Failed"
                     Toast.makeText(this, "Failed to connect to USB device", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 usbSerialManager.disconnect()
-                statusTextView.text = "Status: Disconnected"
+                statusTextView?.text = "Status: Disconnected"
             }
         }
     }
 
     private fun onHardwareDataReceived(data: String) {
-        // Pass door state updates (e.g., "DOOR_OPEN" / "DOOR_CLOSED") to BroAssistant
         broAssistant.updateDoorStateFromArduino(data)
         Toast.makeText(this, "Arduino: $data", Toast.LENGTH_SHORT).show()
     }
