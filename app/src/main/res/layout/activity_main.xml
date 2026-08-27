@@ -1,57 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout 
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:padding="16dp">
-
-    <TextView
-        android:id="@+id/tvTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="BRO Room AI"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp" />
-
-    <ScrollView
-        android:id="@+id/scrollView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#F0F0F0"
-        android:padding="8dp">
-
-        <TextView
-            android:id="@+id/tvLog"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="System Ready..."
-            android:textSize="14sp"
-            android:fontFamily="monospace" />
-    </ScrollView>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvUsbStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="USB Status: Disconnected" />
+
+        <TextView
+            android:id="@+id/tvArduinoStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Arduino Status: Idle" />
+
+        <TextView
+            android:id="@+id/tvLightStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Light Status: Unknown" />
+
+        <TextView
+            android:id="@+id/tvLastCmd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Last Command: None" />
+
+        <TextView
+            android:id="@+id/tvLastResp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Last Response: None" />
+
+        <TextView
+            android:id="@+id/tvVoiceState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Voice State: Idle" />
 
         <Button
-            android:id="@+id/btnConnect"
-            android:layout_width="0dp"
+            android:id="@+id/btnLightOn"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Connect USB" />
+            android:text="Turn Light ON" />
 
         <Button
-            android:id="@+id/btnSend"
-            android:layout_width="0dp"
+            android:id="@+id/btnLightOff"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Send Command" />
+            android:text="Turn Light OFF" />
+
+        <Button
+            android:id="@+id/btnStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Get Status" />
+
+        <Button
+            android:id="@+id/btnPing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ping Arduino" />
+
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Stop Service" />
     </LinearLayout>
-
-</LinearLayout>
+</ScrollView>
