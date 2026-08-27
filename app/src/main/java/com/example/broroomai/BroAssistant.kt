@@ -1,153 +1,98 @@
 package com.example.broroomai
 
 import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import java.util.Locale
 
 class BroAssistant(
     private val context: Context,
-    private val usbSerialManager: UsbSerialManager,
-    private val onUIUpdate: (command: String, response: String) -> Unit
+    private val usbSerialManager: UsbSerialManager
 ) : TextToSpeech.OnInitListener {
 
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var tts: TextToSpeech? = null
-    private var isListening = false
-
-    init {
-        tts = TextToSpeech(context, this)
-        initSpeechRecognizer()
-    }
+    private var tts: TextToSpeech? = TextToSpeech(context, this)
+    
+    // Tracks current state of the door from Arduino feedback
+    private var isDoorOpen: Boolean = false
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.US
-            tts?.setSpeechRate(1.0f)
         }
     }
 
-    private fun initSpeechRecognizer() {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {}
-                override fun onError(error: Int) {
-                    // Automatically restart listening on error/timeout to stay active
-                    if (isListening) {
-                        startListening()
-                    }
-                }
-
-                override fun onResults(results: Bundle?) {
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    if (!matches.isNullOrEmpty()) {
-                        val spokenText = matches[0].lowercase(Locale.ROOT)
-                        processSpokenPhrase(spokenText)
-                    }
-                    if (isListening) {
-                        startListening()
-                    }
-                }
-
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-        }
-    }
-
-    fun startContinuousListening() {
-        isListening = true
-        startListening()
-    }
-
-    private fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-        try {
-            speechRecognizer?.startListening(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun processSpokenPhrase(text: String) {
-        // Only trigger if hotword "bro" is present
-        if (text.contains("bro")) {
-            val commandPart = text.substringAfter("bro").trim()
-            parseAndExecuteCommand(commandPart)
-        }
-    }
-
-    fun processDirectCommand(cmd: String) {
-        executeCommand(cmd)
-    }
-
-    private fun parseAndExecuteCommand(text: String) {
+    // Called when Arduino sends data (e.g., "DOOR_OPEN" or "DOOR_CLOSED")
+    fun updateDoorStateFromArduino(data: String) {
+        val cleanData = data.trim().uppercase(Locale.ROOT)
         when {
-            text.contains("turn on light") || text.contains("light on") || text.contains("lights on") -> {
-                executeCommand("LIGHT_ON")
+            cleanData.contains("DOOR_OPEN") -> {
+                isDoorOpen = true
             }
-            text.contains("turn off light") || text.contains("light off") || text.contains("lights off") -> {
-                executeCommand("LIGHT_OFF")
-            }
-            text.contains("status") -> {
-                executeCommand("STATUS")
-            }
-            text.contains("ping") -> {
-                executeCommand("PING")
-            }
-            text.contains("stop") -> {
-                executeCommand("STOP")
-            }
-            text.contains("hello") || text.contains("hi") -> {
-                speak("Yo! BRO room assistant at your service.")
-                onUIUpdate("GREETING", "Yo! BRO room assistant at your service.")
-            }
-            else -> {
-                speak("Command not recognized, bro.")
-                onUIUpdate("UNKNOWN", "Command not recognized, bro.")
+            cleanData.contains("DOOR_CLOSED") -> {
+                isDoorOpen = false
             }
         }
     }
 
-    private fun executeCommand(cmd: String) {
-        val sent = usbSerialManager.sendCommand(cmd)
-        val responseText = if (sent) {
-            when (cmd) {
-                "LIGHT_ON" -> "Turning light on."
-                "LIGHT_OFF" -> "Turning light off."
-                "STATUS" -> "Requesting status."
-                "PING" -> "Pinging Arduino."
-                "STOP" -> "Emergency stop engaged."
-                else -> "Executing command $cmd."
+    fun processVoiceCommand(command: String) {
+        val cleanCommand = command.lowercase(Locale.ROOT).trim()
+
+        when {
+            // Light Commands
+            cleanCommand.contains("turn on the light") || cleanCommand.contains("light on") -> {
+                executeCommand("LIGHT_ON", "Turning on the light, bro.")
+            }
+            cleanCommand.contains("turn off the light") || cleanCommand.contains("light off") -> {
+                executeCommand("LIGHT_OFF", "Turning off the light.")
+            }
+            
+            // Door Status Narrations
+            cleanCommand.contains("door status") || 
+            cleanCommand.contains("is the door open") || 
+            cleanCommand.contains("is the door closed") ||
+            cleanCommand.contains("check door") -> {
+                narrateDoorStatus()
+            }
+
+            else -> {
+                speak("Sorry bro, I didn't recognize that command.")
+            }
+        }
+    }
+
+    private fun narrateDoorStatus() {
+        if (isDoorOpen) {
+            speak("The door is currently open, bro.")
+        } else {
+            speak("The door is currently closed, bro.")
+        }
+    }
+
+    fun sendCommand(rawCommand: String) {
+        if (usbSerialManager.isConnected) {
+            usbSerialManager.sendCommand(rawCommand)
+        } else {
+            speak("Hardware is not connected over USB.")
+        }
+    }
+
+    private fun executeCommand(hardwareCmd: String, responseSpeech: String) {
+        if (usbSerialManager.isConnected) {
+            val success = usbSerialManager.sendCommand(hardwareCmd)
+            if (success) {
+                speak(responseSpeech)
+            } else {
+                speak("Failed to send command to the board.")
             }
         } else {
-            "Failed. Arduino USB is not connected."
+            speak("USB hardware isn't connected right now.")
         }
-
-        speak(responseText)
-        onUIUpdate(cmd, responseText)
     }
 
-    private fun speak(message: String) {
-        tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "BRO_TTS_ID")
+    fun speak(text: String) {
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "BRO_TTS_ID")
     }
 
     fun shutdown() {
-        isListening = false
-        speechRecognizer?.destroy()
         tts?.stop()
         tts?.shutdown()
     }

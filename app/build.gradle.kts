@@ -41,7 +41,7 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Updated USB Serial Library version
+    // Fixed USB Serial Library Version
     implementation("com.github.mik3y:usb-serial-for-android:3.8.0")
 
     testImplementation("junit:junit:4.13.2")

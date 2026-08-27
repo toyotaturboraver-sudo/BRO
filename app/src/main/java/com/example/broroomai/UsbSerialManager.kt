@@ -1,114 +1,81 @@
 package com.example.broroomai
 
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
-import android.os.Build
 import com.hoho.android.usbserial.driver.UsbSerialDriver
-import com.hoho.android.usbserial.driver.UsbSerialProber
 import com.hoho.android.usbserial.driver.UsbSerialPort
+import com.hoho.android.usbserial.driver.UsbSerialProber
 import com.hoho.android.usbserial.util.SerialInputOutputManager
 import java.io.IOException
+import java.util.concurrent.Executors
 
 class UsbSerialManager(
     private val context: Context,
-    private val onDataReceived: (String) -> Unit,
-    private val onError: (String) -> Unit
+    private val onDataReceived: (String) -> Unit
 ) : SerialInputOutputManager.Listener {
 
-    private val usbManager: UsbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-    private var usbSerialPort: UsbSerialPort? = null
+    private var usbPort: UsbSerialPort? = null
     private var ioManager: SerialInputOutputManager? = null
 
-    companion object {
-        const val ACTION_USB_PERMISSION = "com.example.broroomai.USB_PERMISSION"
-        private const val WRITE_WAIT_MILLIS = 2000
-        private const val READ_WAIT_MILLIS = 2000
-        private const val BAUD_RATE = 9600
-    }
+    val isConnected: Boolean
+        get() = usbPort != null && usbPort!!.isOpen
 
     fun connect(): Boolean {
-        val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
-        if (availableDrivers.isEmpty()) {
-            onError("No USB devices found")
-            return false
-        }
+        val manager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+        val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
+        if (availableDrivers.isEmpty()) return false
 
         val driver: UsbSerialDriver = availableDrivers[0]
-        val device: UsbDevice = driver.device
+        val connection: UsbDeviceConnection = manager.openDevice(driver.device) ?: return false
 
-        if (!usbManager.hasPermission(device)) {
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_MUTABLE
-            } else {
-                0
-            }
-            val permissionIntent = PendingIntent.getBroadcast(
-                context, 
-                0, 
-                Intent(ACTION_USB_PERMISSION), 
-                flags
-            )
-            usbManager.requestPermission(device, permissionIntent)
-            onError("Requesting USB permission...")
-            return false
-        }
+        val port = driver.ports[0]
+        return try {
+            port.open(connection)
+            port.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+            usbPort = port
 
-        val connection: UsbDeviceConnection = usbManager.openDevice(device) ?: run {
-            onError("Opening USB device connection failed")
-            return false
-        }
-
-        usbSerialPort = driver.ports[0]
-        try {
-            usbSerialPort?.open(connection)
-            usbSerialPort?.setParameters(BAUD_RATE, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
-
-            ioManager = SerialInputOutputManager(usbSerialPort, this)
-            ioManager?.start()
-            return true
+            ioManager = SerialInputOutputManager(usbPort, this)
+            Executors.newSingleThreadExecutor().submit(ioManager)
+            true
         } catch (e: IOException) {
-            onError("Error opening port: ${e.message}")
-            disconnect()
-            return false
+            e.printStackTrace()
+            false
         }
     }
 
-    fun sendData(data: String) {
-        if (usbSerialPort == null) {
-            onError("Cannot send: USB not connected")
-            return
-        }
-        try {
-            val bytes = data.toByteArray(Charsets.UTF_8)
-            usbSerialPort?.write(bytes, WRITE_WAIT_MILLIS)
-        } catch (e: IOException) {
-            onError("Error sending data: ${e.message}")
+    fun sendCommand(command: String): Boolean {
+        return if (isConnected) {
+            try {
+                val bytes = (command + "\n").toByteArray(Charsets.UTF_8)
+                usbPort?.write(bytes, 2000)
+                true
+            } catch (e: IOException) {
+                e.printStackTrace()
+                false
+            }
+        } else {
+            false
         }
     }
 
     fun disconnect() {
-        ioManager?.listener = null
-        ioManager?.stop()
-        ioManager = null
-
         try {
-            usbSerialPort?.close()
-        } catch (ignored: IOException) {
+            ioManager?.stop()
+            ioManager = null
+            usbPort?.close()
+            usbPort = null
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
-        usbSerialPort = null
     }
 
     override fun onNewData(data: ByteArray) {
-        val message = String(data, Charsets.UTF_8)
-        onDataReceived(message)
+        val receivedText = String(data, Charsets.UTF_8)
+        onDataReceived(receivedText)
     }
 
     override fun onRunError(e: Exception) {
-        onError("USB Serial Error: ${e.message}")
         disconnect()
     }
 }
