@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.BroRoomAI" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/neon_cyan</item>
+        <item name="colorSecondary">@color/neon_green</item>
+        <item name="android:statusBarColor">@color/hacker_bg</item>
+        <item name="android:windowBackground">@color/hacker_bg</item>
+    </style>
+</resources>
